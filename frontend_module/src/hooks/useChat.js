@@ -2,17 +2,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { SERVER } from "../config";
 
-/**
- * Manages the Socket.IO connection and message state for a single room session.
- */
 export function useChat({ roomId, currentUser, authToken }) {
-  const [messages, setMessages]   = useState([]);
-  const [hasMore, setHasMore]     = useState(false);
+  const [messages, setMessages]       = useState([]);
+  const [hasMore, setHasMore]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [typingUsers, setTypingUsers] = useState(new Set());
 
   const socketRef      = useRef(null);
-  const messagesEndRef = useRef(null);
+  const scrollRef      = useRef(null);   // attach to messages container div
   const typingTimerRef = useRef(null);
 
   const headers = useCallback(
@@ -20,11 +17,25 @@ export function useChat({ roomId, currentUser, authToken }) {
     [authToken]
   );
 
+  // ── Scroll to bottom (used on first load + new messages) ───────────────
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, []);
 
-  // ── Load a page of history ──────────────────────────────────────────────
+  // ── Preserve scroll position when prepending older messages ───────────
+  const preserveScroll = useCallback((callback) => {
+    const el = scrollRef.current;
+    if (!el) { callback(); return; }
+    const distFromBottom = el.scrollHeight - el.scrollTop;
+    callback();
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight - distFromBottom;
+    });
+  }, []);
+
+  // ── Load messages ──────────────────────────────────────────────────────
   const loadMessages = useCallback(
     async (page) => {
       try {
@@ -34,9 +45,7 @@ export function useChat({ roomId, currentUser, authToken }) {
         );
         const data = await res.json();
 
-        setHasMore(data.has_more);
-        setCurrentPage(page);
-
+        // Shape messages — backend returns oldest→newest (ASC timestamp)
         const shaped = data.messages.map((m) => ({
           id:        m._id,
           author:    m.user,
@@ -45,50 +54,63 @@ export function useChat({ roomId, currentUser, authToken }) {
           reactions: m.reactions || {},
         }));
 
+        setHasMore(data.has_more);
+        setCurrentPage(page);
+
         if (page === 1) {
-          const footer =
-            data.messages.length > 0
-              ? [{
-                  id:     null,
-                  author: null,
-                  text:   `── ${data.total} message${data.total !== 1 ? "s" : ""} in this room ──`,
-                  type:   "system",
-                }]
-              : [];
-          setMessages([...shaped, ...footer]);
-          setTimeout(scrollToBottom, 50);
+          // Banner shows at very top, then messages oldest→newest below it
+          const banner = data.total > 0
+            ? [{ id: "banner", author: null, text: `── ${data.total} message${data.total !== 1 ? "s" : ""} in this room ──`, type: "system" }]
+            : [];
+
+          setMessages([...banner, ...shaped]);
+          // Scroll to bottom so the newest message is visible
+          setTimeout(scrollToBottom, 80);
+
         } else {
-          // Prepend older messages
-          setMessages((prev) => [...shaped, ...prev]);
+          // Prepend older messages above existing ones, keep scroll stable
+          preserveScroll(() => {
+            setMessages((prev) => {
+              const withoutBanner = prev.filter((m) => m.id !== "banner");
+              const banner = [{ id: "banner", author: null, text: `── ${data.total} message${data.total !== 1 ? "s" : ""} in this room ──`, type: "system" }];
+              // older shaped messages go ABOVE existing messages
+              return [...banner, ...shaped, ...withoutBanner];
+            });
+          });
         }
       } catch (err) {
         console.error("Failed to load messages:", err);
       }
     },
-    [roomId, currentUser, headers, scrollToBottom]
+    [roomId, currentUser, headers, scrollToBottom, preserveScroll]
   );
 
   // ── Socket lifecycle ────────────────────────────────────────────────────
   useEffect(() => {
+    // Reset state when entering a new room
+    setMessages([]);
+    setHasMore(false);
+    setCurrentPage(1);
+
     loadMessages(1);
 
     const socket = io(SERVER, {
-      transports: ["websocket", "polling"],
+      transports:           ["websocket", "polling"],
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
+      reconnectionDelay:    1000,
     });
-    
     socketRef.current = socket;
 
     socket.on("connect", () => {
       socket.emit("join_room", { room_id: roomId, user_id: currentUser });
     });
 
+    // New real-time message → always append to bottom
     socket.on("message", (data) => {
       if (typeof data === "string") {
         setMessages((prev) => [
           ...prev,
-          { id: null, author: null, text: data, type: "system" },
+          { id: `sys-${Date.now()}`, author: null, text: data, type: "system" },
         ]);
       } else {
         setMessages((prev) => [
@@ -102,7 +124,7 @@ export function useChat({ roomId, currentUser, authToken }) {
           },
         ]);
       }
-      setTimeout(scrollToBottom, 30);
+      setTimeout(scrollToBottom, 40);
     });
 
     socket.on("message_deleted", ({ message_id }) => {
@@ -130,7 +152,7 @@ export function useChat({ roomId, currentUser, authToken }) {
     socket.on("disconnect", () => {
       setMessages((prev) => [
         ...prev,
-        { id: null, author: null, text: "Disconnected from server", type: "system" },
+        { id: `dc-${Date.now()}`, author: null, text: "Disconnected from server", type: "system" },
       ]);
     });
 
@@ -138,15 +160,15 @@ export function useChat({ roomId, currentUser, authToken }) {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [roomId, currentUser, loadMessages, scrollToBottom]);
+  }, [roomId, currentUser]);
 
   // ── Actions ─────────────────────────────────────────────────────────────
   function sendMessage(text) {
     if (!text.trim() || !socketRef.current) return;
     socketRef.current.emit("send_message", {
-      room_id:  roomId,
-      user_id:  currentUser,
-      message:  text.trim(),
+      room_id: roomId,
+      user_id: currentUser,
+      message: text.trim(),
     });
     socketRef.current.emit("stop_typing", { room_id: roomId, user_id: currentUser });
     clearTimeout(typingTimerRef.current);
@@ -198,7 +220,7 @@ export function useChat({ roomId, currentUser, authToken }) {
     hasMore,
     currentPage,
     typingUsers,
-    messagesEndRef,
+    scrollRef,
     loadMessages,
     sendMessage,
     emitTyping,

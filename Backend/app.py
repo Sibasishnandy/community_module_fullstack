@@ -294,7 +294,6 @@ def get_room(room_id):
 #  MESSAGE ROUTES
 # ══════════════════════════════════════════════════════════════════════════════
 
-# GET MESSAGES (paginated) (chatgpt helps to generate this i am also processing this)
 @app.route('/messages/<room_id>', methods=['GET'])
 @token_required
 def get_messages(room_id):
@@ -302,12 +301,19 @@ def get_messages(room_id):
     limit = int(request.args.get('limit', 50))
     skip  = (page - 1) * limit
 
+    total = message_collection.count_documents({"room_id": room_id})
+
+    # Sort DESCENDING to get newest first, then reverse for display order
+    # Page 1 = newest 50, Page 2 = next older 50, etc.
     messages = list(
         message_collection.find(
             {"room_id": room_id},
             {"_id": 1, "user": 1, "message": 1, "timestamp": 1, "reactions": 1}
-        ).sort("timestamp", ASCENDING).skip(skip).limit(limit)
+        ).sort("timestamp", DESCENDING).skip(skip).limit(limit)
     )
+
+    # Reverse so they display oldest→newest within the page
+    messages.reverse()
 
     for m in messages:
         m['_id'] = str(m['_id'])
@@ -315,8 +321,6 @@ def get_messages(room_id):
             m['timestamp'] = m['timestamp'].isoformat()
         if 'reactions' not in m:
             m['reactions'] = {}
-
-    total = message_collection.count_documents({"room_id": room_id})
 
     return jsonify({
         "messages": messages,

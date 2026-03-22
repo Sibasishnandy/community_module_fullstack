@@ -1,21 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useChat } from "../hooks/useChat";
 import { MessageItem } from "../components/MessageItem";
 import { MembersPanel } from "../components/MembersPanel";
 import { SERVER } from "../config";
 
 export function ChatScreen({ currentUser, authToken, roomId, roomName, onLeave, showToast }) {
-  const [msgInput, setMsgInput]         = useState("");
-  const [openPickerId, setOpenPickerId] = useState(null);
+  const [msgInput, setMsgInput]             = useState("");
+  const [openPickerId, setOpenPickerId]     = useState(null);
   const [membersVisible, setMembersVisible] = useState(false);
-  const [membersData, setMembersData]   = useState(null);
-  const messagesRef = useRef(null);
+  const [membersData, setMembersData]       = useState(null);
 
   const {
     messages,
     hasMore,
     currentPage,
     typingUsers,
+    scrollRef,
     loadMessages,
     sendMessage,
     emitTyping,
@@ -24,14 +24,6 @@ export function ChatScreen({ currentUser, authToken, roomId, roomName, onLeave, 
     deleteMessage,
   } = useChat({ roomId, currentUser, authToken });
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messagesRef.current) {
-      messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
-    }
-  }, [messages.length]);
-
-  // Close emoji pickers and members panel on outside click
   useEffect(() => {
     function handleClick(e) {
       if (!e.target.closest(".rc-emoji-picker") && !e.target.closest(".rc-react-btn")) {
@@ -83,18 +75,14 @@ export function ChatScreen({ currentUser, authToken, roomId, roomName, onLeave, 
     onLeave();
   }
 
-  // Typing indicator text
   const typingArr  = [...typingUsers];
   const typingText =
-    typingArr.length === 0
-      ? ""
-      : typingArr.length === 1
-      ? `${typingArr[0]} is typing…`
-      : `${typingArr.slice(0, 2).join(", ")} are typing…`;
+    typingArr.length === 0 ? ""
+    : typingArr.length === 1 ? `${typingArr[0]} is typing…`
+    : `${typingArr.slice(0, 2).join(", ")} are typing…`;
 
   return (
     <div className="rc-screen rc-chat-screen">
-      {/* Header */}
       <div className="rc-chat-header">
         <div className="rc-room-badge">
           <div className="rc-room-dot" />
@@ -114,13 +102,11 @@ export function ChatScreen({ currentUser, authToken, roomId, roomName, onLeave, 
         </div>
       </div>
 
-      {/* Members panel */}
       {membersVisible && membersData && (
         <MembersPanel members={membersData} currentUser={currentUser} />
       )}
 
-      {/* Messages */}
-      <div className="rc-messages" ref={messagesRef}>
+      <div className="rc-messages" ref={scrollRef}>
         {hasMore && (
           <button
             className="rc-load-more-btn"
@@ -142,10 +128,8 @@ export function ChatScreen({ currentUser, authToken, roomId, roomName, onLeave, 
         ))}
       </div>
 
-      {/* Typing indicator */}
       <div className="rc-typing-bar">{typingText}</div>
 
-      {/* Input bar */}
       <div className="rc-input-bar">
         <input
           className="rc-msg-input"
