@@ -22,9 +22,17 @@ frontend_url=os.environ.get("FRONTEND_URL", "*")
 #setting secret key for creating token for users
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 #cross platform resource sharing bw react(frontend) and python(backend)
-CORS(app,origins=[frontend_url, "http://localhost:5173"])
-#real time conversation
-socketio = SocketIO(app, cors_allowed_origins=[frontend_url, "http://localhost:5173"],async_mode="eventlet")
+frontend_url = os.environ.get("FRONTEND_URL", "*")
+
+CORS(app, origins=[frontend_url, "http://localhost:5173", "*"])
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet",
+    ping_timeout=60,
+    ping_interval=25,
+    transports=["websocket", "polling"]
+)
 
 #RATE LIMITING(for stopping spam message or account creation)_____________________________________________________________________
 limiter = Limiter(
@@ -87,6 +95,10 @@ def token_required(f):
 @app.errorhandler(Exception)
 def handle_error(e):
     return jsonify({"message": str(e)}), 500
+
+@app.route('/')
+def health_check():
+    return jsonify({"status": "ok", "message": "RoomChat backend is running"}), 200
 
 
 # ══════════════════════════════════════════════════════════════════════════════
