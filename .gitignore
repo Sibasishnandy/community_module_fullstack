@@ -1,17 +1,18 @@
+# Environment files
+.env
+.env.local
+backend/.env
+frontend_module/.env
+
+# But allow production env (no secrets in it)
+!frontend_module/.env.production
+
 # Python
 __pycache__/
 *.pyc
-.env
 venv/
 env/
 
-# Node / React
+# Node
 node_modules/
 dist/
-.env
-.env.local
-.env.production
-
-# OS
-.DS_Store
-Thumbs.db
