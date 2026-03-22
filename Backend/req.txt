@@ -1,10 +1,11 @@
-Flask
-flask-cors
+flask
 flask-socketio
+flask-cors
 flask-limiter
 pymongo
 python-dotenv
-PyJWT
-bcrypt
-eventlet
 gunicorn
+eventlet
+bcrypt
+PyJWT
+limits
