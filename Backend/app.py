@@ -24,7 +24,7 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 #cross platform resource sharing bw react(frontend) and python(backend)
 CORS(app)
 #real time conversation
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*",async_mode="eventlet")
 
 #RATE LIMITING(for stopping spam message or account creation)_____________________________________________________________________
 limiter = Limiter(
@@ -424,4 +424,4 @@ def handle_stop_typing(data):
 
 # ── RUN ────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=False)
