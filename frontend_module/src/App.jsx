@@ -14,20 +14,23 @@ export default function App() {
   const { currentUser, authToken, isAuthenticated, login, register, logout } = useAuth();
   const { toast, showToast } = useToast();
 
+  // Show wake-up screen until backend responds
+  const [backendReady, setBackendReady] = useState(false);
+
   // "landing" | "auth" | "dashboard" | "created" | "chat"
   const [screen, setScreen]     = useState("landing");
   const [authMode, setAuthMode] = useState("login");
   const [room, setRoom]         = useState({ id: "", name: "" });
 
-  // Restore session
+  // Restore session once backend is ready
   useEffect(() => {
-    if (isAuthenticated) setScreen("dashboard");
-  }, []);
+    if (backendReady && isAuthenticated) setScreen("dashboard");
+  }, [backendReady]);
 
-  // ── Auth callback ──────────────────────────────────────────────────────
+  // ── Auth ───────────────────────────────────────────────────────────────
   async function handleAuthSuccess(mode, username, password) {
     const fn = mode === "login" ? login : register;
-    await fn(username, password); // throws on failure → AuthScreen catches it
+    await fn(username, password);
     setScreen("dashboard");
   }
 
@@ -40,6 +43,11 @@ export default function App() {
   function handleLogout() {
     logout();
     setScreen("landing");
+  }
+
+  // ── Show wake-up screen until backend is alive ─────────────────────────
+  if (!backendReady) {
+    return <WakeUpScreen onReady={() => setBackendReady(true)} />;
   }
 
   return (
