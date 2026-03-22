@@ -72,7 +72,12 @@ export function useChat({ roomId, currentUser, authToken }) {
   useEffect(() => {
     loadMessages(1);
 
-    const socket = io(SERVER);
+    const socket = io(SERVER, {
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+    
     socketRef.current = socket;
 
     socket.on("connect", () => {
