@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth }            from "./hooks/useAuth";
 import { useToast }           from "./hooks/useToast";
 import { Toast }              from "./components/UI";
+import { WakeUpScreen }       from "./components/WakeUpScreen";
 import { LandingScreen }      from "./screens/LandingScreen";
 import { AuthScreen }         from "./screens/AuthScreen";
 import { DashboardScreen }    from "./screens/DashboardScreen";
