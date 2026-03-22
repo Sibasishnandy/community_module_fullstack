@@ -1,0 +1,9 @@
+Flask
+flask-cors
+flask-socketio
+flask-limiter
+pymongo
+python-dotenv
+PyJWT
+bcrypt
+eventlet
