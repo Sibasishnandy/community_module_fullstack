@@ -18,13 +18,13 @@ load_dotenv()
 
 # ── APP SETUP ──────────────────────────────────────────────────────────────────
 app = Flask(__name__)
-
+frontend_url=os.environ.get("FRONTEND_URL", "*")
 #setting secret key for creating token for users
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 #cross platform resource sharing bw react(frontend) and python(backend)
-CORS(app)
+CORS(app,origins=[frontend_url, "http://localhost:5173"])
 #real time conversation
-socketio = SocketIO(app, cors_allowed_origins="*",async_mode="eventlet")
+socketio = SocketIO(app, cors_allowed_origins=[frontend_url, "http://localhost:5173"],async_mode="eventlet")
 
 #RATE LIMITING(for stopping spam message or account creation)_____________________________________________________________________
 limiter = Limiter(
